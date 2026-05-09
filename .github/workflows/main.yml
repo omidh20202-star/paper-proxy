@@ -1,0 +1,32 @@
+name: Fetch Article Info
+
+on:
+  workflow_dispatch:
+    inputs:
+      doi:
+        description: 'DOI of the article'
+        required: true
+        default: '10.1016/j.clnu.2020.12.022'
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch from CrossRef
+        run: |
+          echo "Fetching ${{ github.event.inputs.doi }}"
+          curl -s -H "User-Agent: PaperBot/1.0 (mailto:your@email.com)" "https://api.crossref.org/works/${{ github.event.inputs.doi }}" > article.json
+          echo "Result:"
+          cat article.json
+
+      - name: Extract metadata
+        run: |
+          sudo apt-get install -y jq
+          jq '{title: .message.title[0], author: [.message.author[]? | "\(.given) \(.family)"], year: .message.created."date-parts"[0][0], journal: .message."container-title"[0], publisher: .message.publisher, doi: .message.DOI, url: .message.URL}' article.json > metadata.json
+          cat metadata.json
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: article-metadata
+          path: metadata.json
