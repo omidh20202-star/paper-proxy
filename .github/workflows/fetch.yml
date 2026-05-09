@@ -1,0 +1,36 @@
+name: Fetch Article Info
+
+on:
+  workflow_dispatch:
+    inputs:
+      doi:
+        description: 'مقاله DOI'
+        required: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get metadata from CrossRef
+        run: |
+          curl -s -H "User-Agent: PaperBot/1.0 (mailto:omidh20202@gmail.com)" \
+            "https://api.crossref.org/works/${{ github.event.inputs.doi }}" > article.json
+
+      - name: Extract key fields
+        run: |
+          sudo apt-get install -y jq
+          jq '{
+            title: .message.title[0],
+            author: [.message.author[]? | "\(.given) \(.family)"],
+            year: .message.created."date-parts"[0][0],
+            journal: .message."container-title"[0],
+            publisher: .message.publisher,
+            doi: .message.DOI,
+            abstract: .message.abstract
+          }' article.json > metadata.json
+
+      - name: Upload result as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: article-metadata
+          path: metadata.json
